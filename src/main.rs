@@ -3,10 +3,9 @@ use game::Piece;
 use rand::seq::SliceRandom;
 
 use crate::{
-    ai::get_random_move,
+    ai::{get_random_move, get_random_valid_move, pick_best_move},
     game::{
-        display_board, is_game_won, is_valid_move, move_code_to_position, no_more_moves,
-        update_board,
+        apply_move, display_board, is_game_won, is_valid_move, move_code_to_position, no_more_moves,
     },
 };
 
@@ -68,7 +67,7 @@ pub fn play_pvp() {
             continue;
         }
 
-        update_board(&mut board, &pos, current_piece);
+        apply_move(&mut board, &pos, current_piece);
         if let Some(winner) = is_game_won(&board) {
             display_board(&board);
             println!("Player {} wins!", winner);
@@ -98,7 +97,7 @@ pub fn play_pvc() {
 
     let mut current_piece = Piece::X;
 
-    let mut turn = Turn::Player;
+    let mut turn: Turn;
     let mut rng = rand::thread_rng();
     match [Turn::Player, Turn::Computer].choose(&mut rng) {
         Some(choice) => turn = *choice,
@@ -129,9 +128,10 @@ pub fn play_pvc() {
                 }
             }
         } else {
-            let random_move = get_random_move(&mut rng);
-            println!("Computer chose position {}", random_move);
-            random_move
+            // let computers_move = get_random_valid_move(&mut rng, &board);
+            let computers_move = pick_best_move(&mut rng, &board, current_piece);
+            println!("Computer chose position {}", computers_move);
+            computers_move
         };
 
         if !is_valid_move(&board, &pos) {
@@ -139,7 +139,7 @@ pub fn play_pvc() {
             continue;
         }
 
-        update_board(&mut board, &pos, current_piece);
+        apply_move(&mut board, &pos, current_piece);
         if let Some(winner) = is_game_won(&board) {
             display_board(&board);
             match turn {

@@ -32,6 +32,10 @@ impl std::fmt::Display for Position {
     }
 }
 
+pub fn is_game_over(board: &Board) -> bool {
+    is_game_won(board).is_some() || no_more_moves(board)
+}
+
 pub fn no_more_moves(board: &Board) -> bool {
     board
         .iter()
@@ -115,7 +119,7 @@ pub fn is_valid_move(board: &Board, pos: &Position) -> bool {
     pos.x < 3 && pos.y < 3 && board[pos.y as usize][pos.x as usize].is_none()
 }
 
-pub fn update_board(board: &mut Board, pos: &Position, piece: Piece) {
+pub fn apply_move(board: &mut Board, pos: &Position, piece: Piece) {
     board[pos.y as usize][pos.x as usize] = Some(piece);
 }
 
@@ -137,4 +141,19 @@ pub fn display_board(board: &Board) {
         }
         println!();
     }
+}
+
+pub fn get_available_moves(board: &Board) -> Vec<Position> {
+    let mut valid_moves = Vec::new();
+    (0..3).for_each(|y| {
+        (0..3).for_each(|x| {
+            if board[y][x].is_none() {
+                valid_moves.push(Position {
+                    x: x as u8,
+                    y: y as u8,
+                });
+            }
+        });
+    });
+    valid_moves
 }
