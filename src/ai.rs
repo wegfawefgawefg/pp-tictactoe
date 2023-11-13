@@ -1,5 +1,7 @@
 use rand::{rngs::ThreadRng, seq::SliceRandom};
 
+use rayon::prelude::*;
+
 use crate::game::{
     apply_move, get_available_moves, is_game_over, is_game_won, Board, Piece, Position,
 };
@@ -24,6 +26,22 @@ pub fn get_random_valid_move(rng: &mut ThreadRng, board: &Board) -> Position {
     *get_available_moves(board).choose(rng).unwrap()
 }
 
+pub fn pick_best_move_par(rng: &mut ThreadRng, board: &Board, piece: Piece) -> Position {
+    let available_moves = get_available_moves(board);
+    let (best_move, _best_score) = available_moves
+        .into_par_iter()
+        .map(|possible_move| {
+            let mut new_board = board.clone();
+            apply_move(&mut new_board, &possible_move, piece);
+            let score = minimax(&new_board, 0, 9, piece, piece, i32::MIN, i32::MAX);
+            (possible_move, score)
+        })
+        .max_by_key(|&(_, score)| score)
+        .expect("No valid moves available");
+
+    best_move
+}
+
 pub fn pick_best_move(rng: &mut ThreadRng, board: &Board, piece: Piece) -> Position {
     let mut best_score = i32::MIN;
     let mut best_move = None;
@@ -40,10 +58,10 @@ pub fn pick_best_move(rng: &mut ThreadRng, board: &Board, piece: Piece) -> Posit
             best_move = Some(possible_move);
         }
 
-        // alpha = std::cmp::max(alpha, score);
-        // if beta <= alpha {
-        //     break;
-        // }
+        alpha = std::cmp::max(alpha, score);
+        if beta <= alpha {
+            break;
+        }
     }
 
     best_move.expect("No valid moves available")
@@ -81,10 +99,10 @@ fn minimax(
                 beta,
             );
             max_eval = std::cmp::max(max_eval, eval);
-            // alpha = std::cmp::max(alpha, eval);
-            // if beta <= alpha {
-            //     break;
-            // }
+            alpha = std::cmp::max(alpha, eval);
+            if beta <= alpha {
+                break;
+            }
         }
         max_eval
     } else {
@@ -102,10 +120,10 @@ fn minimax(
                 beta,
             );
             min_eval = std::cmp::min(min_eval, eval);
-            // beta = std::cmp::min(beta, eval);
-            // if beta <= alpha {
-            //     break;
-            // }
+            beta = std::cmp::min(beta, eval);
+            if beta <= alpha {
+                break;
+            }
         }
         min_eval
     }
@@ -115,9 +133,9 @@ fn evaluate(board: &Board, perspective: Piece, depth: i32, max_depth: i32) -> i3
     let winner = is_game_won(board);
     if let Some(winner) = winner {
         if winner == perspective {
-            10_000
+            1
         } else {
-            -10_000
+            -1
         }
     } else {
         0

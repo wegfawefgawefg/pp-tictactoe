@@ -1,20 +1,28 @@
+use core::time;
+use std::os::unix::raw::time_t;
+
 use clap::{arg, command, ArgAction};
 use game::Piece;
-use rand::seq::SliceRandom;
+use indicatif::ProgressIterator;
+use rand::{seq::SliceRandom, Rng};
 
 use crate::{
-    ai::{get_random_move, get_random_valid_move, pick_best_move},
+    ai::{pick_best_move, pick_best_move_par},
     game::{
-        apply_move, display_board, is_game_won, is_valid_move, move_code_to_position, no_more_moves,
+        apply_move, display_board, get_available_moves, is_game_won, is_valid_move,
+        move_code_to_position, no_more_moves,
     },
 };
 
 mod ai;
 mod game;
 
+#[cfg(test)]
+mod test;
+
 enum GameMode {
-    PvP,
-    PvC,
+    PlayerVsPlayer,
+    PlayerVsComputer,
 }
 
 fn main() {
@@ -28,17 +36,27 @@ fn main() {
                 .default_value("true")
                 .action(ArgAction::SetTrue), // Explicitly set the action
         )
+        .arg(
+            arg!(-k --performance "Reports the time taken to make a move.")
+                .action(ArgAction::SetTrue), // Explicitly set the action
+        )
         .get_matches();
 
+    // perform a performance check
+    if *matches.get_one::<bool>("performance").unwrap() {
+        do_performance_check();
+        return;
+    }
+
     let game_mode = if *matches.get_one::<bool>("pvp").unwrap() {
-        GameMode::PvP
+        GameMode::PlayerVsPlayer
     } else {
-        GameMode::PvC
+        GameMode::PlayerVsComputer
     };
 
     match game_mode {
-        GameMode::PvP => play_pvp(),
-        GameMode::PvC => play_pvc(),
+        GameMode::PlayerVsPlayer => play_pvp(),
+        GameMode::PlayerVsComputer => play_pvc(),
     }
 }
 
@@ -129,7 +147,7 @@ pub fn play_pvc() {
             }
         } else {
             // let computers_move = get_random_valid_move(&mut rng, &board);
-            let computers_move = pick_best_move(&mut rng, &board, current_piece);
+            let computers_move = pick_best_move_par(&mut rng, &board, current_piece);
             println!("Computer chose position {}", computers_move);
             computers_move
         };
@@ -164,4 +182,99 @@ pub fn play_pvc() {
             Turn::Player
         };
     }
+}
+
+pub fn do_performance_check() {
+    const NUM_GAMES: u32 = 1000;
+    let total_time_taken_to_move: u128 = (0..NUM_GAMES)
+        .progress_count(NUM_GAMES as u64)
+        .map(|_| {
+            let mut rng = rand::thread_rng();
+            let mut board = vec![vec![None; 3]; 3];
+
+            // random board with random pieces
+            // (0..3).for_each(|x| {
+            //     (0..3).for_each(|y| {
+            //         board[y][x] = *[None, Some(Piece::X), Some(Piece::O)]
+            //             .choose(&mut rng)
+            //             .unwrap();
+            //     });
+            // });
+
+            // make sure there is a move to make
+            // let available_moves = get_available_moves(&board);
+            // // if available moves is empty, then the board is full, so we need to remove a piece
+            // if available_moves.is_empty() {
+            //     let random_x = rng.gen_range(0..3);
+            //     let random_y = rng.gen_range(0..3);
+            //     board[random_y][random_x] = None;
+            // }
+
+            let piece = Piece::X;
+
+            let now = std::time::Instant::now();
+            pick_best_move(&mut rng, &board, piece);
+            now.elapsed().as_nanos()
+        })
+        .sum();
+
+    // compute stats
+    let average_time_taken_to_move = total_time_taken_to_move as f64 / NUM_GAMES as f64;
+    println!(
+        "Average time taken to make a move: {:.2}ns",
+        average_time_taken_to_move
+    );
+
+    // in millis
+    let average_time_taken_to_move = average_time_taken_to_move / 1_000_000.0;
+    println!(
+        "Average time taken to make a move: {:.2}ms",
+        average_time_taken_to_move
+    );
+
+    let total_time_taken_to_move: u128 = (0..NUM_GAMES)
+        .progress_count(NUM_GAMES as u64)
+        .map(|_| {
+            let mut rng = rand::thread_rng();
+            let mut board = vec![vec![None; 3]; 3];
+
+            // random board with random pieces
+            // (0..3).for_each(|x| {
+            //     (0..3).for_each(|y| {
+            //         board[y][x] = *[None, Some(Piece::X), Some(Piece::O)]
+            //             .choose(&mut rng)
+            //             .unwrap();
+            //     });
+            // });
+
+            // make sure there is a move to make
+            // let available_moves = get_available_moves(&board);
+            // // if available moves is empty, then the board is full, so we need to remove a piece
+            // if available_moves.is_empty() {
+            //     let random_x = rng.gen_range(0..3);
+            //     let random_y = rng.gen_range(0..3);
+            //     board[random_y][random_x] = None;
+            // }
+
+            let piece = Piece::X;
+
+            let now = std::time::Instant::now();
+            pick_best_move_par(&mut rng, &board, piece);
+            now.elapsed().as_nanos()
+        })
+        .sum();
+
+    // compute stats
+    let average_time_taken_to_move = total_time_taken_to_move as f64 / NUM_GAMES as f64;
+    println!(
+        "Average time taken to make a move with threading: {:.2}ns",
+        average_time_taken_to_move
+    );
+
+    // in millis
+    let average_time_taken_to_move = average_time_taken_to_move / 1_000_000.0;
+    println!(
+        "Average time taken to make a move with threading: {:.2}ms",
+        average_time_taken_to_move
+    );
 }
