@@ -34,17 +34,17 @@ pub fn pick_best_move(rng: &mut ThreadRng, board: &Board, piece: Piece) -> Posit
         println!("Trying move: {}", possible_move);
         let mut new_board = board.clone(); // Assuming Board is Cloneable
         apply_move(&mut new_board, &possible_move, piece);
-        let score = minimax(&new_board, 9, true, piece, alpha, beta);
+        let score = minimax(&new_board, 0, 9, piece, piece, alpha, beta);
 
         if score > best_score {
             best_score = score;
             best_move = Some(possible_move);
         }
 
-        alpha = std::cmp::max(alpha, score);
-        if beta <= alpha {
-            break;
-        }
+        // alpha = std::cmp::max(alpha, score);
+        // if beta <= alpha {
+        //     break;
+        // }
     }
 
     best_move.expect("No valid moves available")
@@ -53,30 +53,39 @@ pub fn pick_best_move(rng: &mut ThreadRng, board: &Board, piece: Piece) -> Posit
 fn minimax(
     board: &Board,
     depth: i32,
-    is_maximizing_player: bool,
+    max_depth: i32,
+    perspective: Piece,
     piece: Piece,
     mut alpha: i32,
     mut beta: i32,
 ) -> i32 {
-    if depth == 0 || is_game_over(board) {
-        return evaluate(board, piece);
+    if depth == max_depth || is_game_over(board) {
+        return evaluate(board, perspective, depth, max_depth);
     }
 
     let piece = match piece {
         Piece::X => Piece::O,
         Piece::O => Piece::X,
     };
-    if is_maximizing_player {
+    if piece == perspective {
         let mut max_eval = i32::MIN;
         for possible_move in get_available_moves(board) {
             let mut new_board = board.clone();
             apply_move(&mut new_board, &possible_move, piece);
-            let eval = minimax(&new_board, depth - 1, false, piece, alpha, beta);
+            let eval = minimax(
+                &new_board,
+                depth + 1,
+                max_depth,
+                perspective,
+                piece,
+                alpha,
+                beta,
+            );
             max_eval = std::cmp::max(max_eval, eval);
-            alpha = std::cmp::max(alpha, eval);
-            if beta <= alpha {
-                break;
-            }
+            // alpha = std::cmp::max(alpha, eval);
+            // if beta <= alpha {
+            //     break;
+            // }
         }
         max_eval
     } else {
@@ -84,26 +93,55 @@ fn minimax(
         for possible_move in get_available_moves(board) {
             let mut new_board = board.clone();
             apply_move(&mut new_board, &possible_move, piece);
-            let eval = minimax(&new_board, depth - 1, true, piece, alpha, beta);
+            let eval = minimax(
+                &new_board,
+                depth + 1,
+                max_depth,
+                perspective,
+                piece,
+                alpha,
+                beta,
+            );
             min_eval = std::cmp::min(min_eval, eval);
-            beta = std::cmp::min(beta, eval);
-            if beta <= alpha {
-                break;
-            }
+            // beta = std::cmp::min(beta, eval);
+            // if beta <= alpha {
+            //     break;
+            // }
         }
         min_eval
     }
 }
 
-fn evaluate(board: &Board, piece: Piece) -> i32 {
+fn evaluate(board: &Board, perspective: Piece, depth: i32, max_depth: i32) -> i32 {
     let winner = is_game_won(board);
     if let Some(winner) = winner {
-        if winner == piece {
-            10
+        if winner == perspective {
+            10_000
         } else {
-            -10
+            -10_000
         }
     } else {
         0
     }
 }
+
+// winner = getWinner(board)
+// if not winner:
+//     return -100 * math.pow(2, 9 - depth)    #   tie is always depth 9..
+// elif winner == togglePlayer(myPlayer):
+//     return -1000 * math.pow(2, 9 - depth)
+// elif winner == myPlayer:
+//     return 100000000 / depth #/ math.pow(2, depth)
+
+// fn evaluate(board: &Board, piece: Piece, depth: i32) -> i32 {
+//     let winner = is_game_won(board);
+//     if let Some(winner) = winner {
+//         if winner == piece {
+//             10_000
+//         } else {
+//             -10_000
+//         }
+//     } else {
+//         0
+//     }
+// }
