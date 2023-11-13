@@ -31,8 +31,7 @@ pub fn pick_best_move(rng: &mut ThreadRng, board: &Board, piece: Piece) -> Posit
     let beta = i32::MAX;
 
     for possible_move in get_available_moves(board) {
-        println!("Trying move: {}", possible_move);
-        let mut new_board = board.clone(); // Assuming Board is Cloneable
+        let mut new_board = board.clone();
         apply_move(&mut new_board, &possible_move, piece);
         let score = minimax(&new_board, 0, 9, piece, piece, alpha, beta);
 
